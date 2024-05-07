@@ -56,7 +56,9 @@ pub unsafe fn address_to_hypercall(
 				Hypercall::Exit(sysexit)
 			}
 			HypercallAddress::Cmdsize => {
-				let syssize = mem.get_ref_mut(data).unwrap();
+				//CHANGE: adjust to work with updated dynamic CmdsizeParams
+				let syssize = mem.get_ref_mut::<CmdsizeParams>(data).expecct("Cmdsize parameters are invalid");
+				syssize.update(args, env_vars);
 				Hypercall::Cmdsize(syssize)
 			}
 			HypercallAddress::Cmdval => {
@@ -200,10 +202,11 @@ pub fn copy_env(syscmdval: &CmdvalParams, mem: &MmapMemory) {
 
 	// Copy the environment variables into the vm memory
 	for (counter, (key, value)) in std::env::vars_os().enumerate() {
-		if counter >= MAX_ARGC_ENVC.try_into().unwrap() {
-			warn!("Environment is larger than the maximum that can be copied to the VM. Remaining environment is ignored");
-			break;
-		}
+		// CHANGE: no longer a limit on num environment vars
+		// if counter >= MAX_ARGC_ENVC.try_into().unwrap() {
+		// 	warn!("Environment is larger than the maximum that can be copied to the VM. Remaining environment is ignored");
+		// 	break;
+		// }
 
 		let len = key.len() + value.len() + 1;
 		let env_dest = unsafe {

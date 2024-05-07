@@ -9,11 +9,13 @@ pub struct CmdsizeParams {
 	/// Nr of items in the kernel command line.
 	pub argc: i32,
 	/// Lengths of the items in the kernel command line.
-	pub argsz: [i32; MAX_ARGC_ENVC],
+	// Also changed this to a vector so can be dynamic. Will allow future adaptations to be easier
+	pub argsz: Vec<i32>,
 	/// Nr of items in the environment.
 	pub envc: i32,
 	/// Length of the items in the environment.
-	pub envsz: [i32; MAX_ARGC_ENVC],
+	// CHANGE: change from fixed array to vector, so can dynamically allocate
+	pub envsz: Vec<i32>,
 }
 impl CmdsizeParams {
 	#[cfg(feature = "std")]
@@ -22,8 +24,10 @@ impl CmdsizeParams {
 	/// - `args` is a list of strings that form the parameters. (E.g., `["-v", "myarg"]`)
 	///
 	/// Note that this hypercall only transfers the sizes. It usually has to be followed up with the [`Cmdval` Hypercall](crate::Hypercall::Cmdval).
-	pub fn update(&mut self, path: &std::path::Path, args: &[std::ffi::OsString]) {
-		self.argc = 0;
+	// CHANGE
+	pub fn update(&mut self, args: &[String], env_vars: &[(String, String)], path: &std::path::Path, args: &[std::ffi::OsString]) {
+		self.argc = args.len() as i32;
+		self.argsz.clear();
 
 		self.argsz[0] = path.as_os_str().len() as i32 + 1;
 
@@ -34,15 +38,11 @@ impl CmdsizeParams {
 			self.argc += 1;
 		}
 
-		self.envc = 0;
-		// let mut counter = 0;
-		for (key, value) in std::env::vars_os() {
-			if self.envc < MAX_ARGC_ENVC.try_into().unwrap() {
-				self.envsz[self.envc as usize] = (key.len() + value.len()) as i32 + 2;
-				self.envc += 1;
-			} else {
-				log::warn!("Environment is too large! {key:?}={value:?} will not be passed!");
-			}
+		self.envc = env_vars.len() as i32;
+		self.envsz.clear();
+		for (key, value) in env_vars {
+			self.envsz.push((key.len() + value.len()) as i32 + 2);
+			self.envc += 1;
 		}
 	}
 }

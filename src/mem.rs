@@ -40,6 +40,11 @@ impl MmapMemory {
 			.expect("mmap failed")
 		};
 
+		// CHANGE: add check for the environment variables
+		// Environment variables settings
+		let huge_pages = env::var("USE_HUGE_PAGES").map_or(false, |v| v == "true");
+		let mergeable = env::var("USE_MERGABLE_PAGES").map_or(false, |v| v == "true")
+
 		if mergeable {
 			#[cfg(target_os = "linux")]
 			{
