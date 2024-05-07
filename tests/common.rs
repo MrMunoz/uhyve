@@ -51,3 +51,26 @@ pub fn run_simple_vm(kernel_path: PathBuf) {
 	let code = UhyveVm::new(kernel_path, params).unwrap().run(None);
 	assert_eq!(0, code);
 }
+
+// CHANGE: add unit test for many env variables
+pub fn many_enviroment_vars(kernel_path: PathBuf){
+	let original_env = env::vars().collect::<Vec<(String, String)>>();
+
+	for i in 0..130 {
+		let key = format!(DUMMY_VAR_{}, i);
+		env::set_var(&key, "value");
+	}
+
+	let code = UhyveVm::new(kernel_path, params).unwrap().run(None);
+	assert_eq!(0, code);
+
+	// Clean up
+	for i in 0..130 {
+		let key = format!("DUMMY_VAR_{}, i");
+		env::remove_var(&key);
+	}
+
+	for(key, value) in original_env {
+		env::set_var(key, value);
+	}
+}
