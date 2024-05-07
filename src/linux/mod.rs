@@ -12,6 +12,7 @@ use std::{
 	os::unix::prelude::JoinHandleExt,
 	sync::{Arc, Barrier},
 	thread,
+	panic::catch_unwind,
 };
 
 use core_affinity::CoreId;
@@ -114,18 +115,25 @@ impl UhyveVm<KvmCpu> {
 					thread::sleep(std::time::Duration::from_millis(cpu_id as u64 * 50));
 
 					// jump into the VM and execute code of the guest
-					match cpu.run() {
-						Ok(code) => {
+					let result = catch_unwind(move || {cpu.run()});
+
+					match result {
+						Ok(Ok(code)) => {
 							if code.is_some() {
 								// Let the main thread continue with kicking the other vCPUs
 								barrier.wait();
 							}
 							code
 						}
-						Err(err) => {
+						Ok(Err(err)) => {
 							error!("CPU {} crashed with {:?}", cpu_id, err);
 							barrier.wait();
 							Some(err.errno())
+						}
+						Err(_) => {
+							error!("Caught unwind on cpu.run() on thread {}", cpu_id); 
+							barrier.wait();
+							None
 						}
 					}
 				})
